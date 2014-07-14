@@ -3,6 +3,14 @@ influxdb-collectd-proxy
 
 A very simple proxy between collectd and influxdb.
 
+This is a fork of [hoonmin/influxdb-collectd-proxy](https://github.com/hoonmin/influxdb-collectd-proxy) with the following changes:
+
+* code refactor
+* batch writes to InfluxDB backend
+* background InfluxDB write operation
+* use hostname as column (rather than series name)
+
+
 ## Build
 
 Clone this project and just make it.
