@@ -13,11 +13,7 @@ This is a fork of [hoonmin/influxdb-collectd-proxy](https://github.com/hoonmin/i
 
 ## Build
 
-Clone this project and just make it.
-
-```
-$ make
-```
+Clone this project and `go build` it.
 
 ## Usage
 
