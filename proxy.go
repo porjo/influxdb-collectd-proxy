@@ -7,12 +7,15 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"time"
 
 	influxdb "github.com/influxdb/influxdb-go"
 	collectd "github.com/paulhammond/gocollectd"
+	"github.com/samalba/dockerclient"
 )
 
+const appName = "influxdb-collectd-proxy"
 const influxWriteInterval = time.Second
 const influxWriteLimit = 50
 const packetChannelSize = 100
@@ -30,10 +33,18 @@ var (
 	database  *string
 	normalize *bool
 
+	docker *dockerT
+
 	types       Types
 	client      *influxdb.Client
 	beforeCache map[string]CacheEntry
 )
+
+type dockerT struct {
+	sync.Mutex
+	client *dockerclient.DockerClient
+	names  map[string]string
+}
 
 // point cache to perform data normalization for COUNTER and DERIVE types
 type CacheEntry struct {
@@ -51,6 +62,8 @@ func handleSignals(c chan os.Signal) {
 }
 
 func init() {
+	log.SetPrefix("[" + appName + "] ")
+
 	// proxy options
 	proxyPort = flag.String("proxyport", "8096", "port for proxy")
 	typesdbPath = flag.String("typesdb", "types.db", "path to Collectd's types.db")
@@ -64,12 +77,35 @@ func init() {
 	database = flag.String("database", "", "database for influxdb")
 	normalize = flag.Bool("normalize", true, "true if you need to normalize data for COUNTER and DERIVE types (over time)")
 
+	// docker options
+	dockerSock := flag.String("docker", "", "Docker socket e.g. unix:///var/run/docker.sock")
+
 	flag.Parse()
+
+	var err error
+
+	if *dockerSock != "" {
+		docker = &dockerT{}
+		// Init the client
+		dc, err := dockerclient.NewDockerClient(*dockerSock, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		docker.client = dc
+		docker.names = make(map[string]string)
+		go func() {
+			for {
+				if err := docker.updateNames(); err != nil {
+					log.Printf("Error updating Docker container names, err '%s'\n", err)
+				}
+				time.Sleep(1 * time.Minute)
+			}
+		}()
+	}
 
 	beforeCache = make(map[string]CacheEntry)
 
 	// read types.db
-	var err error
 	types, err = ParseTypesDB(*typesdbPath)
 	if err != nil {
 		log.Fatalf("failed to read types.db: %v\n", err)
@@ -154,6 +190,15 @@ func processPacket(packet collectd.Packet) []*influxdb.Series {
 		// as hostname contains commas, let's replace them
 		hostName := strings.Replace(packet.Hostname, ".", "_", -1)
 
+		// Try and resolve Docker container ID to real hostname
+		if docker != nil {
+			docker.Lock()
+			if realName, ok := docker.names[hostName]; ok {
+				hostName = realName
+			}
+			docker.Unlock()
+		}
+
 		// if there's a PluginInstance, use it
 		pluginName := packet.Plugin
 		if packet.PluginInstance != "" {
@@ -212,4 +257,17 @@ func processPacket(packet collectd.Packet) []*influxdb.Series {
 		}
 	}
 	return seriesGroup
+}
+
+func (d *dockerT) updateNames() error {
+	d.Lock()
+	defer d.Unlock()
+	containers, err := d.client.ListContainers(true)
+	if err != nil {
+		return err
+	}
+	for _, c := range containers {
+		d.names[c.Id] = strings.TrimPrefix(c.Names[0], "/")
+	}
+	return nil
 }
