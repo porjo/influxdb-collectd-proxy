@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	influxdb "github.com/influxdb/influxdb-go"
+	influxdb "github.com/influxdb/influxdb/client"
 	collectd "github.com/paulhammond/gocollectd"
 	"github.com/samalba/dockerclient"
 )
@@ -25,6 +25,7 @@ var (
 	typesdbPath *string
 	logPath     *string
 	verbose     *bool
+	https       *bool
 
 	// influxdb options
 	host      *string
@@ -76,6 +77,7 @@ func init() {
 	password = flag.String("password", "root", "password for influxdb")
 	database = flag.String("database", "", "database for influxdb")
 	normalize = flag.Bool("normalize", true, "true if you need to normalize data for COUNTER and DERIVE types (over time)")
+	https = flag.Bool("https", false, "true if you want the influxdb client to connect over https")
 
 	// docker options
 	dockerSock := flag.String("docker", "", "Docker socket e.g. unix:///var/run/docker.sock")
@@ -126,6 +128,7 @@ func main() {
 		Username: *username,
 		Password: *password,
 		Database: *database,
+		IsSecure: *https,
 	})
 	if err != nil {
 		log.Fatalf("failed to make a influxdb client: %v\n", err)
@@ -260,7 +263,7 @@ func processPacket(packet collectd.Packet) []*influxdb.Series {
 }
 
 func (d *dockerT) updateNames() error {
-	containers, err := d.client.ListContainers(true)
+	containers, err := d.client.ListContainers(true,true,"")
 	if err != nil {
 		return err
 	}
