@@ -9,6 +9,7 @@ This is a fork of [hoonmin/influxdb-collectd-proxy](https://github.com/hoonmin/i
 * batch writes to InfluxDB backend
 * background InfluxDB write operation
 * use hostname as column (rather than series name)
+* resolve Docker container IDs to friendly names
 
 
 ## Build
@@ -31,15 +32,17 @@ LoadPlugin network
 And start the proxy.
 
 ```
-$ bin/proxy --typesdb="types.db" --database="collectd" --username="collectd" --password="collectd"
+$ bin/influxdb-collectd-proxy --typesdb="types.db" --database="collectd" --username="collectd" --password="collectd"
 ```
 
 ## Options
 
 ```
-$ bin/proxy --help
-Usage of bin/proxy:
+$ ./influxdb-collectd-proxy  --help
+Usage of ./influxdb-collectd-proxy:
   -database="": database for influxdb
+  -docker="": Docker socket e.g. unix:///var/run/docker.sock
+  -https=false: true if you want the influxdb client to connect over https
   -influxdb="localhost:8086": host:port for influxdb
   -logfile="proxy.log": path to log file
   -normalize=true: true if you need to normalize data for COUNTER and DERIVE types (over time)
@@ -49,11 +52,6 @@ Usage of bin/proxy:
   -username="root": username for influxdb
   -verbose=false: true if you need to trace the requests
 ```
-
-## Dependencies
-
-- http://github.com/paulhammond/gocollectd/
-- http://github.com/influxdb/influxdb-go/
 
 ## References
 
