@@ -92,7 +92,6 @@ func init() {
 			log.Fatal(err)
 		}
 		docker.client = dc
-		docker.names = make(map[string]string)
 		go func() {
 			for {
 				if err := docker.updateNames(); err != nil {
@@ -266,6 +265,7 @@ func (d *dockerT) updateNames() error {
 	}
 	d.Lock()
 	defer d.Unlock()
+	docker.names = make(map[string]string)
 	for _, c := range containers {
 		id := ""
 		if len(c.Id) >= 12 {
