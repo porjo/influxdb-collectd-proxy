@@ -262,19 +262,23 @@ func processPacket(packet collectd.Packet) []*influxdb.Series {
 }
 
 func (d *dockerT) updateNames() error {
-	containers, err := d.client.ListContainers(true,true,"")
+	containers, err := d.client.ListContainers(true, true, "")
 	if err != nil {
 		return err
 	}
 	d.Lock()
 	defer d.Unlock()
-	docker.names = make(map[string]string)
+	d.names = make(map[string]string)
 	for _, c := range containers {
-		id := ""
-		if len(c.Id) >= 12 {
-			id = c.Id[0:12]
+		info, err := d.client.InspectContainer(c.Id)
+		if err != nil {
+			return err
 		}
-		d.names[id] = strings.TrimPrefix(c.Names[0], "/")
+
+		if info.State.Running {
+			d.names[c.Id] = strings.TrimPrefix(c.Names[0], "/")
+		}
 	}
+
 	return nil
 }
